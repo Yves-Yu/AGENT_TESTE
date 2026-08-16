@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shopping Agent — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f2f5;
+      color: #1f2937;
+    }
+
+    header {
+      background: #1e40af;
+      color: #fff;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header a { color: #bfdbfe; font-size: 13px; text-decoration: none; }
+    header a:hover { color: #fff; }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #374151; }
+    .section { margin-bottom: 32px; }
+
+    /* Métricas */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .metric-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      text-align: center;
+    }
+    .metric-card .value { font-size: 28px; font-weight: 700; color: #1e40af; }
+    .metric-card .label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+    /* Runs */
+    .run-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: box-shadow .15s;
+      border-left: 4px solid #e5e7eb;
+    }
+    .run-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .run-card.success { border-left-color: #22c55e; }
+    .run-card.failure { border-left-color: #ef4444; }
+    .run-card.running { border-left-color: #f59e0b; }
+
+    .run-header { display: flex; justify-content: space-between; gap: 8px; }
+    .run-input { font-size: 14px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .run-meta { font-size: 12px; color: #6b7280; white-space: nowrap; }
+    .run-date { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+    /* Spans */
+    .spans-container {
+      display: none;
+      margin-top: 10px;
+      padding: 10px;
+      background: #f9fafb;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    .span-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    .span-row.llm  { background: #eff6ff; }
+    .span-row.tool { background: #f0fdf4; }
+    .span-row.node { background: #fefce8; }
+    .span-name { font-weight: 600; min-width: 180px; }
+    .span-badge {
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-llm  { background: #dbeafe; color: #1e40af; }
+    .badge-tool { background: #dcfce7; color: #166534; }
+    .badge-node { background: #fef9c3; color: #854d0e; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-failure { background: #fee2e2; color: #991b1b; }
+    .span-tokens { color: #6b7280; }
+    .span-error { color: #ef4444; margin-top: 2px; }
+
+    #refresh-info { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+    #refresh-btn {
+      padding: 6px 14px;
+      background: #1e40af;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Shopping Agent — Observabilidade</h1>
+    <a href="/">← Voltar ao Chat</a>
+  </header>
+
+  <main>
+    <div class="section">
+      <h2>
+        Métricas Agregadas
+        <button id="refresh-btn" onclick="loadAll()">Atualizar</button>
+        <span id="refresh-info">atualiza a cada 15s</span>
+      </h2>
+      <div class="metrics-grid" id="metrics-grid">
+        <div class="metric-card"><div class="value">—</div><div class="label">Total de Execuções</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Execuções Recentes (últimas 50)</h2>
+      <div id="runs-list">Carregando...</div>
+    </div>
+  </main>
+
+  <script>
+    const spansCache = {};
+
+    async function loadMetrics() {
+      const res = await fetch('/api/metrics');
+      const d = await res.json();
+      const grid = document.getElementById('metrics-grid');
+      const fmt = v => v == null ? '—' : v;
+      grid.innerHTML = `
+        <div class="metric-card"><div class="value">${fmt(d.total_runs)}</div><div class="label">Total de Execuções</div></div>
+        <div class="metric-card"><div class="value">${fmt(d.successes)}</div><div class="label">Sucesso</div></div>
+        <div class="metric-card"><div class="value">${fmt(d.failures)}</div><div class="label">Falha</div></div>
+        <div class="metric-card"><div class="value">${d.avg_tokens != null ? Math.round(d.avg_tokens) : '—'}</div><div class="label">Tokens Médios / Exec</div></div>
+        <div class="metric-card"><div class="value">${d.avg_duration_ms != null ? (d.avg_duration_ms/1000).toFixed(1)+'s' : '—'}</div><div class="label">Duração Média</div></div>
+        <div class="metric-card"><div class="value">$${(d.total_cost_usd || 0).toFixed(4)}</div><div class="label">Custo Total (USD)</div></div>
+      `;
+    }
+
+    function badge(cls, text) {
+      return `<span class="span-badge badge-${cls}">${text}</span>`;
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function prettyJson(raw) {
+      if (!raw) return '(vazio)';
+      try {
+        return JSON.stringify(JSON.parse(raw), null, 2);
+      } catch {
+        return raw;
+      }
+    }
+
+    async function toggleSpans(runId) {
+      const el = document.getElementById(`spans-${runId}`);
+      if (el.style.display === 'block') {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = 'block';
+      if (spansCache[runId]) {
+        renderSpans(el, spansCache[runId]);
+        return;
+      }
+      el.textContent = 'Carregando spans...';
+      const res = await fetch(`/api/runs/${runId}/spans`);
+      const spans = await res.json();
+      spansCache[runId] = spans;
+      renderSpans(el, spans);
+    }
+
+    function renderSpans(el, spans) {
+      if (!spans.length) {
+        el.innerHTML = '<em style="color:#9ca3af;font-size:12px">Nenhum span registrado.</em>';
+        return;
+      }
+      el.innerHTML = spans.map(s => `
+        <div class="span-row ${s.kind}" style="flex-wrap:wrap">
+          <span class="span-name">${s.name}</span>
+          ${badge(s.kind, s.kind)}
+          ${badge(s.status === 'success' ? 'success' : 'failure', s.status)}
+          <span class="span-tokens">${s.duration_ms ?? '?'}ms | in:${s.tokens_in} out:${s.tokens_out} $${(s.cost_usd||0).toFixed(5)}</span>
+          ${s.error ? `<div class="span-error">✗ ${s.error}</div>` : ''}
+          <details style="width:100%;margin-top:4px" onclick="event.stopPropagation()">
+            <summary style="cursor:pointer;font-size:11px;color:#6b7280">entrada / saída</summary>
+            <pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:6px;margin-top:4px">entrada:
+${escapeHtml(prettyJson(s.input_json))}
+
+saída:
+${escapeHtml(prettyJson(s.output_json))}</pre>
+          </details>
+        </div>
+      `).join('');
+    }
+
+    async function loadRuns() {
+      const res = await fetch('/api/runs?limit=50');
+      const runs = await res.json();
+      const list = document.getElementById('runs-list');
+      if (!runs.length) {
+        list.innerHTML = '<p style="color:#9ca3af;font-size:13px">Nenhuma execução ainda. Faça uma pergunta no chat!</p>';
+        return;
+      }
+      list.innerHTML = runs.map(r => `
+        <div class="run-card ${r.status}" onclick="toggleSpans('${r.run_id}')">
+          <div class="run-header">
+            <span class="run-input" title="${(r.input_text||'').replace(/"/g,'&quot;')}">${(r.input_text||'N/A').substring(0,90)}…</span>
+            <span class="run-meta">
+              ${r.status} | ${r.channel} | ${r.duration_ms != null ? (r.duration_ms/1000).toFixed(1)+'s' : '?'} |
+              tokens: ${r.tokens_in}+${r.tokens_out} | $${(r.cost_usd||0).toFixed(4)}
+            </span>
+          </div>
+          <div class="run-date">${r.started_at} · run ${r.run_id.substring(0,8)}…</div>
+          <div class="spans-container" id="spans-${r.run_id}"></div>
+        </div>
+      `).join('');
+    }
+
+    async function loadAll() {
+      await Promise.all([loadMetrics(), loadRuns()]);
+      document.getElementById('refresh-info').textContent =
+        'atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+    }
+
+    loadAll();
+    setInterval(loadAll, 15000);
+  </script>
+</body>
+</html>

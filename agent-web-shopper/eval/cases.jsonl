@@ -1,0 +1,5 @@
+{"id": "c1", "input": "Quero comprar um notebook Dell para trabalho, até R$3000, priorizando boa bateria e leveza", "expected_fields": ["preço", "notebook", "Dell"], "description": "Busca com budget e critérios explícitos"}
+{"id": "c2", "input": "Qual o tênis de corrida Nike mais barato disponível em lojas brasileiras online?", "expected_fields": ["tênis", "Nike", "preço"], "description": "Busca de menor preço em produto específico"}
+{"id": "c3", "input": "Melhor smartphone Android até R$2500 com câmera boa e bateria duradoura", "expected_fields": ["smartphone", "câmera", "bateria"], "description": "Comparação multi-critério com trade-off esperado"}
+{"id": "c4", "input": "Café em cápsulas compatíveis com Nespresso: quero o melhor custo-benefício considerando preço por cápsula e avaliação", "expected_fields": ["café", "cápsula", "preço"], "description": "Critério composto (preço por unidade + avaliação)"}
+{"id": "c5", "input": "Monitor gamer 27 polegadas 144Hz, até R$1500. Compare as principais opções disponíveis.", "expected_fields": ["monitor", "144Hz", "preço"], "description": "Comparação de monitores com especificação técnica"}

@@ -1,0 +1,4 @@
+{
+  "_comment": "Copie este arquivo, edite os prompts e configure PROMPT_FILE=<caminho> no .env. O agente carregará os prompts daqui sem necessidade de redeploy.",
+  "MAIN_AGENT_SYSTEM_PROMPT": "Você é um agente de pesquisa de compras especializado em eletrônicos. [Cole aqui o prompt completo customizado]"
+}
